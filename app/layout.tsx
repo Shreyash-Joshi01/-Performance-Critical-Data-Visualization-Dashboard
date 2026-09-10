@@ -9,7 +9,18 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      {/*
+        suppressHydrationWarning here only tells React "don't warn if THIS
+        element's attributes differ between server and client HTML" — it
+        does not silence hydration mismatches anywhere else in the tree.
+        It's needed because browser extensions (Grammarly, password
+        managers, etc.) inject attributes like data-gr-ext-installed
+        straight into <body> before React hydrates, so the client's <body>
+        never matches what the server sent — through no fault of this
+        app's code. Without this, that specific dev-only warning is
+        cosmetic noise, not a sign of an actual bug.
+      */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

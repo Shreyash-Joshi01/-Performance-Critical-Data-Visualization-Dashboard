@@ -6,6 +6,7 @@ import { useChartRenderer } from "@/hooks/useChartRenderer";
 import { sliceByTimeRange } from "@/lib/search";
 import { aggregate } from "@/lib/aggregation";
 import { clearCanvas, computeValueRange, drawTimeAxis, drawYAxis, timeToX, valueToY } from "@/lib/canvasUtils";
+import { measure } from "@/lib/performanceUtils";
 import { BoundedBuffer } from "@/lib/buffer";
 import { AggregatedPoint, AggregationInterval, CATEGORY_COLOR, Category, DataPoint, Viewport } from "@/lib/types";
 
@@ -16,6 +17,7 @@ interface BarChartProps {
   viewport: Viewport;
   aggregation: AggregationInterval;
   onRenderTime?: (ms: number) => void;
+  onProcessingTime?: (ms: number) => void;
 }
 
 /**
@@ -24,7 +26,7 @@ interface BarChartProps {
  * and each bucket becomes one bar showing its average, with categories
  * shown as grouped, side-by-side bars per bucket.
  */
-function BarChart({ buffers, versionRef, categories, viewport, aggregation, onRenderTime }: BarChartProps) {
+function BarChart({ buffers, versionRef, categories, viewport, aggregation, onRenderTime, onProcessingTime }: BarChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastVersionRef = useRef(-1);
   const lastViewportRef = useRef<Viewport | null>(null);
@@ -32,30 +34,38 @@ function BarChart({ buffers, versionRef, categories, viewport, aggregation, onRe
 
   const draw = useCallback(
     (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-      clearCanvas(ctx, width, height);
-
       // Bar charts need at least a handful of buckets to be legible; "raw" falls back to 1m.
       const effectiveInterval = aggregation === "raw" ? "1m" : aggregation;
 
-      const perCategory = new Map<Category, AggregatedPoint[]>();
-      const allValues: number[] = [];
-      for (const category of categories) {
-        const slice = sliceByTimeRange(buffers[category].snapshot(), viewport.startTime, viewport.endTime);
-        const buckets = aggregate(slice, effectiveInterval);
-        perCategory.set(category, buckets);
-        for (const b of buckets) allValues.push(b.avg);
-      }
+      // "Processing" = slicing to the viewport + aggregating into time buckets
+      // (lib/aggregation.ts). This is genuinely O(raw points in view), unlike render.
+      const { result, ms: processingMs } = measure(() => {
+        const perCategory = new Map<Category, AggregatedPoint[]>();
+        const allValues: number[] = [];
+        for (const category of categories) {
+          const slice = sliceByTimeRange(buffers[category].snapshot(), viewport.startTime, viewport.endTime);
+          const buckets = aggregate(slice, effectiveInterval);
+          perCategory.set(category, buckets);
+          for (const b of buckets) allValues.push(b.avg);
+        }
+        const range = computeValueRange(allValues.length ? allValues : [0, 100]);
+        const bucketKeys = new Set<number>();
+        for (const category of categories) {
+          for (const b of perCategory.get(category) ?? []) bucketKeys.add(b.bucketStart);
+        }
+        const sortedBuckets = Array.from(bucketKeys).sort((a, b) => a - b);
+        return { perCategory, range, sortedBuckets };
+      });
+      onProcessingTime?.(processingMs);
+      const { perCategory, range, sortedBuckets } = result;
 
-      const range = computeValueRange(allValues.length ? allValues : [0, 100]);
+      const renderStart = performance.now();
+      clearCanvas(ctx, width, height);
       drawYAxis(ctx, width, height, range.min, range.max);
 
-      const bucketKeys = new Set<number>();
-      for (const category of categories) {
-        for (const b of perCategory.get(category) ?? []) bucketKeys.add(b.bucketStart);
-      }
-      const sortedBuckets = Array.from(bucketKeys).sort((a, b) => a - b);
       if (sortedBuckets.length === 0) {
         drawTimeAxis(ctx, width, height, viewport.startTime, viewport.endTime);
+        onRenderTime?.(performance.now() - renderStart);
         return;
       }
 
@@ -76,8 +86,9 @@ function BarChart({ buffers, versionRef, categories, viewport, aggregation, onRe
       });
 
       drawTimeAxis(ctx, width, height, viewport.startTime, viewport.endTime);
+      onRenderTime?.(performance.now() - renderStart);
     },
-    [buffers, categories, viewport, aggregation]
+    [buffers, categories, viewport, aggregation, onProcessingTime, onRenderTime]
   );
 
   const isDirty = useCallback(() => {
@@ -91,7 +102,7 @@ function BarChart({ buffers, versionRef, categories, viewport, aggregation, onRe
     return changed;
   }, [versionRef, viewport, aggregation]);
 
-  useChartRenderer({ canvasRef, draw, isDirty, onFrameRendered: onRenderTime });
+  useChartRenderer({ canvasRef, draw, isDirty });
 
   return <ChartContainer ref={canvasRef} title={`Bar Chart (${aggregation === "raw" ? "1m" : aggregation} buckets)`} categories={categories} />;
 }

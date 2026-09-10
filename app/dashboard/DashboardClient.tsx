@@ -106,7 +106,13 @@ export default function DashboardClient({ initialData, initialLoadLevel }: Dashb
 
   const bounds = useMemo(() => ({ minTime: initialOldest, maxTime: Date.now() + 1000 * 60 * 60 * 24 * 365 }), [initialOldest]);
 
+  // Main and secondary charts each report their own render/processing time
+  // (measured inside their own draw() calls — see e.g. LineChart.tsx); the
+  // monitor shows the max of the two, i.e. "the slower of what's on screen
+  // right now", since that's what actually determines whether a frame drops.
   const renderTimeRef = useRef<{ main: number; secondary: number }>({ main: 0, secondary: 0 });
+  const processingTimeRef = useRef<{ main: number; secondary: number }>({ main: 0, secondary: 0 });
+
   const reportMainRenderTime = useCallback((ms: number) => {
     renderTimeRef.current.main = ms;
     reportRenderTime(Math.max(renderTimeRef.current.main, renderTimeRef.current.secondary));
@@ -115,16 +121,18 @@ export default function DashboardClient({ initialData, initialLoadLevel }: Dashb
     renderTimeRef.current.secondary = ms;
     reportRenderTime(Math.max(renderTimeRef.current.main, renderTimeRef.current.secondary));
   }, [reportRenderTime]);
-
-  // Processing time = a proxy for the derived-data work each chart type does (LOD, aggregation, bucketing).
-  useEffect(() => {
-    const start = performance.now();
-    void aggregation;
-    reportProcessingTime(performance.now() - start);
-  }, [aggregation, activeCategories, viewport, reportProcessingTime]);
+  const reportMainProcessingTime = useCallback((ms: number) => {
+    processingTimeRef.current.main = ms;
+    reportProcessingTime(Math.max(processingTimeRef.current.main, processingTimeRef.current.secondary));
+  }, [reportProcessingTime]);
+  const reportSecondaryProcessingTime = useCallback((ms: number) => {
+    processingTimeRef.current.secondary = ms;
+    reportProcessingTime(Math.max(processingTimeRef.current.main, processingTimeRef.current.secondary));
+  }, [reportProcessingTime]);
 
   function renderChart(type: ChartType, slot: "main" | "secondary") {
     const onRenderTime = slot === "main" ? reportMainRenderTime : reportSecondaryRenderTime;
+    const onProcessingTime = slot === "main" ? reportMainProcessingTime : reportSecondaryProcessingTime;
     switch (type) {
       case "line":
         return (
@@ -137,6 +145,7 @@ export default function DashboardClient({ initialData, initialLoadLevel }: Dashb
             bounds={bounds}
             onViewportChange={handleInteractiveViewportChange}
             onRenderTime={onRenderTime}
+            onProcessingTime={onProcessingTime}
           />
         );
       case "scatter":
@@ -150,6 +159,7 @@ export default function DashboardClient({ initialData, initialLoadLevel }: Dashb
             bounds={bounds}
             onViewportChange={handleInteractiveViewportChange}
             onRenderTime={onRenderTime}
+            onProcessingTime={onProcessingTime}
           />
         );
       case "bar":
@@ -161,6 +171,7 @@ export default function DashboardClient({ initialData, initialLoadLevel }: Dashb
             viewport={viewport}
             aggregation={aggregation}
             onRenderTime={onRenderTime}
+            onProcessingTime={onProcessingTime}
           />
         );
       case "heatmap":
@@ -171,6 +182,7 @@ export default function DashboardClient({ initialData, initialLoadLevel }: Dashb
             categories={activeCategories}
             viewport={viewport}
             onRenderTime={onRenderTime}
+            onProcessingTime={onProcessingTime}
           />
         );
     }

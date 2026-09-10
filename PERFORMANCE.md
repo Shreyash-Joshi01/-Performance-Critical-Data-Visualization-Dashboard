@@ -19,17 +19,54 @@ benchmark script (`measuredFps_3s`). Both agreed in every run below.
 Test machine: containerized Linux, headless Chromium (no GPU acceleration — a real
 browser on real hardware with GPU compositing will generally do at least as well).
 
-| Load level | Points in buffer | FPS (app / measured) | Render time | Processing time | JS heap |
+| Load level | Points in buffer | FPS (app / measured) | Processing time | Render time | JS heap |
 |---|---|---|---|---|---|
-| 10,000 (100ms ingest) | 10,160 | 60 / 60 | 3.0 ms | 0.0 ms | 14.2 MB |
-| 25,000 (100ms ingest) | 25,116 | — / 60 | — | — | 15.3 MB |
-| 50,000 (100ms ingest) | 50,116 | — / 60 | — | — | 22.1 MB |
-| 50,000 (20ms "stress test" ingest, 5x rate) | 50,856 | — / 60 | — | — | 22.7 MB |
+| 10,000 (100ms ingest) | 10,160 | 60 / 60 | 1.9 ms | 0.3 ms | 14.2 MB |
+| 50,000 (20ms "stress test" ingest, 5x rate) | 50,820 | 61 / 61 | 2.5 ms | 0.2 ms | 22.7 MB |
 
-All four load levels held a steady 60 FPS in this environment — including the stress
-test at 5x the normal ingest rate. "Render time" (3.0ms) is comfortably inside a
-16.7ms frame budget at 60fps, which is the headroom that keeps FPS steady as load
-increases: the bottleneck at these sizes is nowhere near the render itself.
+*(An earlier pass of this doc reported "Processing: 0.0 ms" at every load level. That
+was a real bug, not a rounding artifact: `DashboardClient.tsx` was timing an empty
+effect instead of the actual per-chart data-prep work, so the number was meaningless
+by construction — a stub, not a measurement. It's fixed now: each chart times its own
+two phases internally — see "Processing vs. render time" below — and the corrected
+number visibly scales with load (1.9ms → 2.5ms from 10k to 50k), which the old stub
+never could. Flagging this here on purpose rather than quietly editing the old
+numbers away.)*
+
+All load levels held a steady 60 FPS (briefly 61, within measurement noise) in this
+environment — including the stress test at 5x the normal ingest rate. Both phases
+combined (≈2-3ms) sit comfortably inside a 16.7ms frame budget at 60fps.
+
+### Processing vs. render time — and why stress test doesn't drop FPS
+
+These two numbers are measured as genuinely separate phases inside each chart's own
+`draw()` call (e.g. `components/charts/LineChart.tsx`), not derived or estimated:
+
+1. **Processing** — `performance.now()` wrapped around deriving what to draw from
+   the raw buffers: binary-search slicing to the current viewport
+   (`lib/search.ts`) plus level-of-detail bucketing / aggregation / heatmap
+   grid-binning. This is the phase whose cost actually scales with how much raw
+   data exists — more buffered points, more of this work.
+2. **Render** — `performance.now()` wrapped around the actual canvas calls
+   (`ctx.stroke`, `ctx.fillRect`, `ctx.arc`, …) that turn the already-processed
+   data into pixels.
+
+The reason **FPS doesn't drop under stress test** is that stress test only raises
+the *ingest* rate (100ms → 20ms ticks pushed into the buffer) — it does not raise
+the *render* workload, because every chart caps how many draw calls it issues
+regardless of buffer size: the line chart buckets to ≈canvas-width LOD samples, the
+scatter plot samples down to a fixed cap once past `MAX_RENDERED_PER_SERIES`, the
+bar chart draws one bar per aggregation bucket, and the heatmap always draws exactly
+`TIME_BUCKETS × VALUE_BUCKETS` cells. So "Render" stays flat (0.2-0.3ms) at every
+load level tested; only "Processing" grows, and even that stays small because
+binary-search slicing is O(log n) and the buffer itself is bounded (never more than
+~50k-55k points regardless of how long stress test runs). If those caps didn't
+exist — e.g. a naive scatter plot drawing one `ctx.arc()` per raw point — render
+time would scale linearly with point count instead, and 50k+ points at 60fps would
+not be steady. This is the honest answer to "is my machine just too good, or is
+this suspicious": it's neither — the architecture is deliberately built so that
+render cost is decoupled from point count past a fixed resolution, which is the
+entire point of LOD/aggregation/sampling in the first place.
 
 ### Interaction latency
 
