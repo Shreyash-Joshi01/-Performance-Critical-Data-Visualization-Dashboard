@@ -1,0 +1,34 @@
+{
+  "load_10k": {
+    "points": "10,160",
+    "appReportedFps": "60",
+    "measuredFps_3s": 60,
+    "renderMs": "3.0 ms",
+    "processingMs": "0.0 ms",
+    "memoryMB": "14.2 MB"
+  },
+  "load_25k": {
+    "points": "25,116",
+    "measuredFps_3s": 60,
+    "memoryMB": "15.3 MB"
+  },
+  "load_50k": {
+    "points": "50,116",
+    "measuredFps_3s": 60,
+    "memoryMB": "22.1 MB"
+  },
+  "stress_50k": {
+    "points": "50,856",
+    "measuredFps_3s": 60,
+    "memoryMB": "22.7 MB"
+  },
+  "interaction": {
+    "wheelAndDragRoundTripMs": 390
+  },
+  "chartSwitchOk": true,
+  "filterToggleOk": true,
+  "aggregationOk": true,
+  "pauseHoldsPointCount": true,
+  "consoleErrors": [],
+  "pageErrors": []
+}
