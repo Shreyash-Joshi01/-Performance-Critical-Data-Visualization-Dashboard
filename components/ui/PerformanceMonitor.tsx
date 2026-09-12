@@ -12,6 +12,36 @@ function fpsColor(fps: number): string {
   return "var(--bad)";
 }
 
+const SPARK_WIDTH = 64;
+const SPARK_HEIGHT = 22;
+
+/**
+ * Tiny inline SVG sparkline of recent FPS samples (usePerformanceMonitor's
+ * fpsHistory) — plotted 0-60fps so a dip reads as a dip and a flat line at
+ * the top genuinely means "steady 60", not just "steady at whatever the max
+ * sample happened to be". No charting library: this is a handful of SVG
+ * polyline points, not a rendering problem worth pulling in a dependency for.
+ */
+function FpsSparkline({ history }: { history: number[] }) {
+  if (history.length < 2) return <svg width={SPARK_WIDTH} height={SPARK_HEIGHT} aria-hidden="true" />;
+  const max = 60;
+  const points = history
+    .map((fps, i) => {
+      const x = (i / (history.length - 1)) * SPARK_WIDTH;
+      const y = SPARK_HEIGHT - (Math.min(fps, max) / max) * SPARK_HEIGHT;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const latest = history[history.length - 1]!;
+  return (
+    <svg width={SPARK_WIDTH} height={SPARK_HEIGHT} aria-hidden="true">
+      {/* 30fps reference line — the "warn" threshold fpsColor also uses */}
+      <line x1={0} y1={SPARK_HEIGHT / 2} x2={SPARK_WIDTH} y2={SPARK_HEIGHT / 2} stroke="#232833" strokeWidth={1} />
+      <polyline points={points} fill="none" stroke={fpsColor(latest)} strokeWidth={1.5} />
+    </svg>
+  );
+}
+
 /**
  * Pure display component — every number here is a *measured* value passed
  * in as a prop (see usePerformanceMonitor.ts and useChartRenderer.ts's
@@ -30,6 +60,7 @@ export default function PerformanceMonitor({ metrics }: PerformanceMonitorProps)
         <span className="perf-value" style={{ color: fpsColor(metrics.fps) }}>
           {metrics.fps}
         </span>
+        <FpsSparkline history={metrics.fpsHistory} />
       </div>
       <div className="perf-stat">
         <span className="perf-label">Render</span>

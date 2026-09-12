@@ -25,7 +25,9 @@ export function useViewportInteractions(
   canvasRef: React.RefObject<HTMLCanvasElement>,
   viewportRef: React.MutableRefObject<Viewport>,
   bounds: ViewportBounds,
-  onViewportChange: (next: Viewport) => void
+  onViewportChange: (next: Viewport) => void,
+  /** Double-click on the chart to snap back to "follow live" — the fast way out of a zoomed/panned view without hunting for the right wheel/drag to get back. Optional: charts that don't have a live-follow concept simply omit it. */
+  onReset?: () => void
 ): void {
   const draggingRef = useRef(false);
   const lastXRef = useRef(0);
@@ -91,16 +93,23 @@ export function useViewportInteractions(
       draggingRef.current = false;
     };
 
+    const handleDoubleClick = (e: MouseEvent) => {
+      e.preventDefault();
+      onReset?.();
+    };
+
     canvas.addEventListener("wheel", handleWheel, { passive: false });
     canvas.addEventListener("mousedown", handleMouseDown);
+    canvas.addEventListener("dblclick", handleDoubleClick);
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
 
     return () => {
       canvas.removeEventListener("wheel", handleWheel);
       canvas.removeEventListener("mousedown", handleMouseDown);
+      canvas.removeEventListener("dblclick", handleDoubleClick);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [canvasRef, viewportRef, bounds.minTime, bounds.maxTime, onViewportChange]);
+  }, [canvasRef, viewportRef, bounds.minTime, bounds.maxTime, onViewportChange, onReset]);
 }

@@ -18,6 +18,8 @@ interface ScatterPlotProps {
   viewportRef: React.MutableRefObject<Viewport>;
   bounds: ViewportBounds;
   onViewportChange: (v: Viewport) => void;
+  /** Double-click resets to "follow live" — see useViewportInteractions.ts. */
+  onResetToLive?: () => void;
   onRenderTime?: (ms: number) => void;
   onProcessingTime?: (ms: number) => void;
 }
@@ -35,6 +37,7 @@ function ScatterPlot({
   viewportRef,
   bounds,
   onViewportChange,
+  onResetToLive,
   onRenderTime,
   onProcessingTime,
 }: ScatterPlotProps) {
@@ -42,7 +45,7 @@ function ScatterPlot({
   const lastVersionRef = useRef(-1);
   const lastViewportRef = useRef<Viewport | null>(null);
 
-  useViewportInteractions(canvasRef, viewportRef, bounds, onViewportChange);
+  useViewportInteractions(canvasRef, viewportRef, bounds, onViewportChange, onResetToLive);
 
   const draw = useCallback(
     (ctx: CanvasRenderingContext2D, width: number, height: number) => {

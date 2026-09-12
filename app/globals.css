@@ -8,10 +8,6 @@
   --good: #3ecf8e;
   --warn: #f5a623;
   --bad: #f5524a;
-  --cpu: #4da3ff;
-  --memory: #b779ff;
-  --network: #3ecf8e;
-  --temperature: #f5a623;
 }
 
 * {
@@ -277,31 +273,49 @@ button {
   }
 }
 
-.table-scroll {
-  overflow-y: auto;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
+/*
+  Grid-based table rows (not <table>/<tr>) so the header and the virtualized
+  body share literally the same column-width definition (one CSS rule) and
+  can never drift out of alignment the way two separate <table> elements
+  with independently-computed auto column widths can. The header lives
+  outside the scrolling container entirely, so it's always visible without
+  relying on `position: sticky` inside a translated/virtualized ancestor
+  (sticky doesn't work there — the transformed wrapper creates a new
+  containing block that sticky can't escape).
+*/
+.data-table-row {
+  display: grid;
+  grid-template-columns: 130px 90px 1fr;
   font-size: 12px;
 }
 
-.data-table th {
-  position: sticky;
-  top: 0;
-  text-align: left;
-  padding: 4px 12px;
+.data-table-head {
+  padding: 0 12px;
   color: var(--text-dim);
   font-weight: 500;
   background: var(--panel);
   border-bottom: 1px solid var(--panel-border);
 }
 
-.data-table td {
-  padding: 3px 12px;
+.data-table-head > span {
+  padding: 6px 0;
+}
+
+.table-scroll {
+  overflow-y: auto;
+}
+
+.data-table-row-body {
+  padding: 0 12px;
   border-bottom: 1px solid #1a1f29;
+}
+
+.data-table-row-body > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
 }
 
 .dashboard-shell,

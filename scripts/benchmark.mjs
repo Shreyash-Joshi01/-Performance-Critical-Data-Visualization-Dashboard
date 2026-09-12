@@ -105,9 +105,9 @@ for (const type of ["Bar", "Scatter", "Heatmap", "Line"]) {
 results.chartSwitchOk = true;
 
 console.log("Testing category filter toggle...");
-await page.click('label:has-text("CPU") input');
+await page.click('label:has-text("AAPL") input');
 await page.waitForTimeout(300);
-await page.click('label:has-text("CPU") input');
+await page.click('label:has-text("AAPL") input');
 results.filterToggleOk = true;
 
 console.log("Testing aggregation control...");
@@ -123,6 +123,7 @@ const pointsAfterPause2 = await readStat("Points");
 results.pauseHoldsPointCount = pointsAfterPause1 === pointsAfterPause2;
 await page.click('button:has-text("Start")');
 
+results.activeDedicatedWorkers = page.workers().map((w) => w.url());
 results.consoleErrors = consoleErrors;
 results.pageErrors = pageErrors;
 

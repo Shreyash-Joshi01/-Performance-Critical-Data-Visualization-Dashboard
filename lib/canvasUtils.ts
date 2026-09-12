@@ -76,6 +76,10 @@ export function computeValueRange(values: readonly number[], padRatio = 0.1): { 
   return { min: min - pad, max: max + pad };
 }
 
+export function formatPrice(value: number): string {
+  return `$${value.toFixed(2)}`;
+}
+
 /** Draws light horizontal gridlines + Y-axis value labels directly on the canvas. */
 export function drawYAxis(ctx: CanvasRenderingContext2D, width: number, height: number, min: number, max: number, ticks = 4): void {
   ctx.save();
@@ -92,7 +96,7 @@ export function drawYAxis(ctx: CanvasRenderingContext2D, width: number, height: 
     ctx.stroke();
     // Skip the bottom-most label (i === 0): drawTimeAxis renders start/end
     // time text in that same bottom-left corner, and the two would overlap.
-    if (i > 0) ctx.fillText(value.toFixed(1), 4, Math.max(10, y - 2));
+    if (i > 0) ctx.fillText(formatPrice(value), 4, Math.max(10, y - 2));
   }
   ctx.restore();
 }

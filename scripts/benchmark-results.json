@@ -4,31 +4,35 @@
     "appReportedFps": "60",
     "measuredFps_3s": 60,
     "renderMs": "0.3 ms",
-    "processingMs": "1.7 ms",
-    "memoryMB": "8.3 MB"
+    "processingMs": "0.3 ms",
+    "memoryMB": "13.8 MB"
   },
   "load_25k": {
     "points": "25,116",
     "measuredFps_3s": 60,
-    "memoryMB": "18.2 MB"
+    "memoryMB": "18.6 MB"
   },
   "load_50k": {
-    "points": "50,116",
+    "points": "50,112",
     "measuredFps_3s": 60,
-    "memoryMB": "25.3 MB"
+    "memoryMB": "32.3 MB"
   },
   "stress_50k": {
-    "points": "50,956",
+    "points": "50,952",
     "measuredFps_3s": 60,
-    "memoryMB": "13.1 MB"
+    "memoryMB": "18.2 MB"
   },
   "interaction": {
-    "wheelAndDragRoundTripMs": 296
+    "wheelAndDragRoundTripMs": 273
   },
   "chartSwitchOk": true,
   "filterToggleOk": true,
   "aggregationOk": true,
   "pauseHoldsPointCount": true,
+  "activeDedicatedWorkers": [
+    "http://localhost:3100/workers/dataProcessor.worker.js",
+    "http://localhost:3100/workers/dataProcessor.worker.js"
+  ],
   "consoleErrors": [],
   "pageErrors": []
 }
