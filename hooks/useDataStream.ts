@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CATEGORIES, Category, DataPoint, LoadLevel } from "@/lib/types";
 import { BoundedBuffer } from "@/lib/buffer";
-import { generateInitialDataset, generateTick, mulberry32 } from "@/lib/dataGenerator";
+import { generateInitialDataset, generateTick, mulberry32, resumeInstrumentState, InstrumentState } from "@/lib/dataGenerator";
+import { regenerateDataset } from "@/app/actions";
 
 export interface DataStreamHandle {
   /** Live, mutable per-category buffers. Renderers read these directly every frame — never copied into React state. */
@@ -18,6 +19,10 @@ export interface DataStreamHandle {
   pause: () => void;
   setLoadLevel: (level: LoadLevel) => void;
   setStressTest: (on: boolean) => void;
+  /** True while a Server Action round-trip for `randomize()` is in flight. */
+  randomizing: boolean;
+  /** Server Action-backed reseed — see app/actions.ts's regenerateDataset. */
+  randomize: () => Promise<void>;
 }
 
 function buildBuffers(initialData: DataPoint[], perCategoryMax: number): Record<Category, BoundedBuffer<DataPoint>> {
@@ -28,6 +33,22 @@ function buildBuffers(initialData: DataPoint[], perCategoryMax: number): Record<
     buffers[category] = buf;
   }
   return buffers;
+}
+
+/**
+ * Each instrument is a random *walk*, so the live stream can't just call a
+ * stateless formula — it has to pick up exactly where the last buffered
+ * point left off, or there'd be a visible price jump the instant streaming
+ * takes over from the server-generated initial dataset.
+ */
+function resumeStatesFromBuffers(buffers: Record<Category, BoundedBuffer<DataPoint>>): Record<Category, InstrumentState> {
+  const states = {} as Record<Category, InstrumentState>;
+  for (const category of CATEGORIES) {
+    const snap = buffers[category].snapshot();
+    const last = snap[snap.length - 1];
+    states[category] = resumeInstrumentState(last ? last.value : 0);
+  }
+  return states;
 }
 
 const BASE_INTERVAL_MS = 100;
@@ -52,11 +73,18 @@ export function useDataStream(initialData: DataPoint[], initialLoadLevel: LoadLe
   const [buffers] = useState(() => buildBuffers(initialData, perCategoryMax));
   const versionRef = useRef(0);
   const randRef = useRef(mulberry32(Date.now() & 0xffffffff));
+  // Per-instrument random-walk state for the live stream, resumed from
+  // wherever the server-generated initial dataset left each price.
+  const statesRef = useRef<Record<Category, InstrumentState> | null>(null);
+  if (statesRef.current === null) {
+    statesRef.current = resumeStatesFromBuffers(buffers);
+  }
 
   const [running, setRunning] = useState(true);
   const [loadLevel, setLoadLevelState] = useState<LoadLevel>(initialLoadLevel);
   const [stressTest, setStressTest] = useState(false);
   const [pointCount, setPointCount] = useState(initialData.length);
+  const [randomizing, setRandomizing] = useState(false);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickCountRef = useRef(0);
@@ -88,6 +116,10 @@ export function useDataStream(initialData: DataPoint[], initialLoadLevel: LoadLe
       buf.seed(freshData.filter((p) => p.category === category));
       total += buf.length;
     }
+    // The regenerated buffer ends at a new price per instrument — resume the
+    // live random walk from there too, or the very next streamed tick would
+    // jump back to wherever the old walk happened to be.
+    statesRef.current = resumeStatesFromBuffers(buffers);
     versionRef.current += 1;
     setPointCount(total);
   }, [loadLevel, buffers]);
@@ -98,7 +130,7 @@ export function useDataStream(initialData: DataPoint[], initialLoadLevel: LoadLe
     const intervalMs = stressTest ? STRESS_INTERVAL_MS : BASE_INTERVAL_MS;
 
     const tick = () => {
-      const points = generateTick(Date.now(), randRef.current);
+      const points = generateTick(Date.now(), randRef.current, statesRef.current!);
       for (const p of points) {
         buffers[p.category].push(p);
       }
@@ -126,6 +158,30 @@ export function useDataStream(initialData: DataPoint[], initialLoadLevel: LoadLe
   const pause = useCallback(() => setRunning(false), []);
   const setLoadLevel = useCallback((level: LoadLevel) => setLoadLevelState(level), []);
 
+  // Same buffer-reseeding shape as the load-level effect above, except the
+  // fresh dataset comes from a Server Action (app/actions.ts) instead of
+  // being computed inline — so this one is async and has a real (if usually
+  // small) network round-trip, unlike everything else in this hook.
+  const randomize = useCallback(async () => {
+    setRandomizing(true);
+    try {
+      const freshData = await regenerateDataset(loadLevel);
+      const perCategoryCap = loadLevel / CATEGORIES.length;
+      let total = 0;
+      for (const category of CATEGORIES) {
+        const buf = buffers[category];
+        buf.setMaxSize(perCategoryCap);
+        buf.seed(freshData.filter((p) => p.category === category));
+        total += buf.length;
+      }
+      statesRef.current = resumeStatesFromBuffers(buffers);
+      versionRef.current += 1;
+      setPointCount(total);
+    } finally {
+      setRandomizing(false);
+    }
+  }, [loadLevel, buffers]);
+
   return {
     buffers,
     versionRef,
@@ -137,5 +193,7 @@ export function useDataStream(initialData: DataPoint[], initialLoadLevel: LoadLe
     pause,
     setLoadLevel,
     setStressTest,
+    randomizing,
+    randomize,
   };
 }

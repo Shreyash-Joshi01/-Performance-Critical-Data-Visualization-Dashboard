@@ -1,0 +1,28 @@
+{
+  "load_100k": {
+    "points": "100,116",
+    "appReportedFps": "60",
+    "measuredFps_5s": 60,
+    "renderMs": "0.3 ms",
+    "processingMs": "0.3 ms",
+    "memoryMB": "31.2 MB",
+    "droppedFrames": "0",
+    "regenerationAndFirstDrawMs": 197
+  },
+  "interaction_100k": {
+    "wheelAndDragRoundTripMs": 302
+  },
+  "stress_100k": {
+    "points": "101,076",
+    "measuredFps_3s": 60,
+    "memoryMB": "32.3 MB",
+    "droppedFrames": "0"
+  },
+  "tableSortMs": 44,
+  "activeDedicatedWorkers": [
+    "http://localhost:3100/workers/dataProcessor.worker.js",
+    "http://localhost:3100/workers/dataProcessor.worker.js"
+  ],
+  "consoleErrors": [],
+  "pageErrors": []
+}

@@ -3,15 +3,18 @@
  * (generator, buffer, aggregation, renderers) shares the exact same shapes.
  */
 
-/** One synthetic telemetry sample. */
+/** One simulated price/quote sample for an instrument. */
 export interface DataPoint {
   timestamp: number; // epoch ms
-  value: number;
+  value: number; // price, in simulated $
   category: Category;
   metadata?: Record<string, unknown>;
 }
 
-export const CATEGORIES = ["CPU", "Memory", "Network", "Temperature"] as const;
+// Four tickers, each driven by a genuinely different stochastic process in
+// lib/dataGenerator.ts (not just different parameters on the same formula) —
+// see that file for the model each one uses and why.
+export const CATEGORIES = ["AAPL", "TSLA", "XOM", "NVDA"] as const;
 export type Category = (typeof CATEGORIES)[number];
 
 export type ChartType = "line" | "bar" | "scatter" | "heatmap";
@@ -44,14 +47,16 @@ export interface PerformanceMetrics {
   pointCount: number;
   memoryUsageMB?: number;
   droppedFrames: number;
+  /** Recent FPS samples (oldest first), for the on-screen sparkline — see PerformanceMonitor.tsx. */
+  fpsHistory: number[];
 }
 
-export type LoadLevel = 10_000 | 25_000 | 50_000;
+export type LoadLevel = 10_000 | 25_000 | 50_000 | 100_000;
 
-/** Per-category color, single source of truth for chart + legend + table. */
+/** Per-instrument color, single source of truth for chart + legend + table. */
 export const CATEGORY_COLOR: Record<Category, string> = {
-  CPU: "#4da3ff",
-  Memory: "#b779ff",
-  Network: "#3ecf8e",
-  Temperature: "#f5a623",
+  AAPL: "#4da3ff",
+  TSLA: "#f5524a",
+  XOM: "#3ecf8e",
+  NVDA: "#f5a623",
 };

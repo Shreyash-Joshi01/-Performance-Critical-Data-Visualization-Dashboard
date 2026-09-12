@@ -1,0 +1,30 @@
+{
+  "serviceWorker": {
+    "supported": true,
+    "registered": true,
+    "scope": "http://localhost:3100/",
+    "active": true
+  },
+  "manifestReachable": true,
+  "manifestLinkPresent": true,
+  "streamingApi": {
+    "contentType": "application/x-ndjson; charset=utf-8",
+    "lineCount": 4,
+    "firstLineMs": 0.7000000000698492,
+    "totalMs": 4.200000000069849
+  },
+  "randomizeButtonPresent": true,
+  "randomize": {
+    "pointsBefore": "10,080",
+    "pointsAfter": "10,080",
+    "roundTripMs": 161
+  },
+  "flashClassSeen": true,
+  "middlewareHeaders": {
+    "xFrameOptions": "DENY",
+    "xContentTypeOptions": "nosniff",
+    "referrerPolicy": "strict-origin-when-cross-origin"
+  },
+  "consoleErrors": [],
+  "pageErrors": []
+}

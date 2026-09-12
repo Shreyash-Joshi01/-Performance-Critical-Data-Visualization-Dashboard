@@ -81,6 +81,11 @@ export default function DashboardClient({ initialData, initialLoadLevel }: Dashb
     setFollowLive(true);
   }, []);
 
+  // Double-click on a chart (useViewportInteractions.ts) snaps back to
+  // following live data at whatever time-range preset is already selected —
+  // the fast way out of a zoomed/panned view without touching the controls bar.
+  const resetToLive = useCallback(() => setFollowLive(true), []);
+
   // Keeps the visible window sliding forward with real time while "following live".
   useEffect(() => {
     if (!followLive) return;
@@ -144,6 +149,7 @@ export default function DashboardClient({ initialData, initialLoadLevel }: Dashb
             viewportRef={viewportRef}
             bounds={bounds}
             onViewportChange={handleInteractiveViewportChange}
+            onResetToLive={resetToLive}
             onRenderTime={onRenderTime}
             onProcessingTime={onProcessingTime}
           />
@@ -158,6 +164,7 @@ export default function DashboardClient({ initialData, initialLoadLevel }: Dashb
             viewportRef={viewportRef}
             bounds={bounds}
             onViewportChange={handleInteractiveViewportChange}
+            onResetToLive={resetToLive}
             onRenderTime={onRenderTime}
             onProcessingTime={onProcessingTime}
           />
@@ -201,6 +208,8 @@ export default function DashboardClient({ initialData, initialLoadLevel }: Dashb
           onPause={stream.pause}
           stressTest={stream.stressTest}
           onStressTestChange={stream.setStressTest}
+          onRandomize={stream.randomize}
+          randomizing={stream.randomizing}
         />
         <FilterPanel active={activeCategories} onChange={setActiveCategories} />
         <TimeRangeSelector active={timeRangePreset} onChange={handlePresetChange} />
